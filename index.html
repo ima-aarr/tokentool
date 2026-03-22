@@ -1,359 +1,394 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>token Tool</title>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h1, h2 { color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        .section { margin-bottom: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 5px; }
-        label { display: block; margin-top: 10px; font-weight: bold; font-size: 0.9em; }
-        input[type="text"], input[type="number"], textarea, select { width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        .checkbox-group { display: flex; align-items: center; margin-top: 10px; }
-        .checkbox-group input { width: auto; margin-right: 10px; }
-        button { margin-top: 15px; padding: 10px 15px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; }
-        button:hover { background: #2980b9; }
-        #logArea { background: #222; color: #0f0; padding: 10px; height: 150px; overflow-y: scroll; font-family: monospace; border-radius: 4px; margin-top: 20px; }
-        .flex-row { display: flex; gap: 10px; }
-        .flex-row > div { flex: 1; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AARR Tool - Advanced Interface</title>
+<style>
+  :root { --bg: #0a0a0a; --panel: #141414; --border: #333; --text: #eaeaea; --accent: #00ffaa; --hover: #00cc88; }
+  body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; overflow: hidden; }
+  #sidebar { width: 260px; background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
+  .nav-btn { background: none; border: none; color: var(--text); padding: 15px 20px; text-align: left; font-size: 15px; cursor: pointer; border-bottom: 1px solid #222; transition: 0.2s; }
+  .nav-btn:hover, .nav-btn.active { background: #222; border-left: 4px solid var(--accent); }
+  #main { flex: 1; display: flex; flex-direction: column; }
+  #content { flex: 1; padding: 30px; overflow-y: auto; }
+  .section { display: none; }
+  .section.active { display: block; }
+  .card { background: var(--panel); border: 1px solid var(--border); padding: 20px; border-radius: 6px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+  h2 { margin-top: 0; color: var(--accent); font-weight: normal; font-size: 18px; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 20px; }
+  label { display: block; margin-bottom: 5px; font-size: 12px; color: #aaa; }
+  input[type="text"], input[type="number"], textarea, select { width: 100%; background: #000; border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 4px; box-sizing: border-box; margin-bottom: 15px; font-family: monospace; outline: none; }
+  input[type="text"]:focus, input[type="number"]:focus, textarea:focus { border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 80px; }
+  .row { display: flex; gap: 15px; }
+  .row > div { flex: 1; }
+  .checkbox-group { display: flex; align-items: center; margin-bottom: 15px; background: #000; padding: 10px; border-radius: 4px; border: 1px solid var(--border); }
+  .checkbox-group input { margin: 0 10px 0 0; cursor: pointer; }
+  .checkbox-group label { margin: 0; font-size: 14px; color: var(--text); cursor: pointer; }
+  button.action { width: 100%; background: var(--accent); color: #000; border: none; padding: 12px; font-size: 16px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.2s; margin-bottom: 10px; }
+  button.action:hover { background: var(--hover); }
+  button.secondary { background: #333; color: var(--text); }
+  button.secondary:hover { background: #444; }
+  #log-panel { height: 200px; background: #000; border-top: 1px solid var(--border); padding: 15px; font-family: monospace; font-size: 12px; color: #0f0; overflow-y: auto; white-space: pre-wrap; }
+  .warn { color: #ffaa00; font-size: 11px; margin-top: -10px; margin-bottom: 10px; display: block; }
+</style>
 </head>
 <body>
-<div class="container">
-    <h1>token Tool</h1>
-    <div class="section">
-        <label>Cloudflare Worker URL:</label>
-        <input type="text" id="workerUrl" placeholder="https://your-worker.workers.dev" required>
-        <label>T (Token):</label>
-        <textarea id="tokens" rows="3" placeholder="トークンを入力 (複数可、改行区切り)"></textarea>
-    </div>
 
-    <div class="section" id="idSettings">
+<div id="sidebar">
+  <button class="nav-btn active" data-target="sec-core">主要設定 / ID設定</button>
+  <button class="nav-btn" data-target="sec-msg">メッセージ設定</button>
+  <button class="nav-btn" data-target="sec-transfer">転送設定</button>
+  <button class="nav-btn" data-target="sec-react">リアクション設定</button>
+  <button class="nav-btn" data-target="sec-thread">スレッド設定</button>
+  <button class="nav-btn" data-target="sec-nick">ニックネーム設定</button>
+  <button class="nav-btn" data-target="sec-event">イベント / 絵文字設定</button>
+</div>
+
+<div id="main">
+  <div id="content">
+    
+    <div id="sec-core" class="section active">
+      <div class="card">
+        <h2>主要設定</h2>
+        <label>Cloudflare Worker URL</label>
+        <input type="text" id="worker_url" placeholder="https://your-worker.workers.dev">
+        <label>T: (Tokenリスト 1行に1つ)</label>
+        <textarea id="tokens" style="height: 120px;" placeholder="token1&#10;token2"></textarea>
+      </div>
+      <div class="card">
         <h2>ID設定</h2>
-        <div class="flex-row">
-            <div><label>サーバーID:</label><input type="text" id="guildId"></div>
-            <div><label>チャンネルID:</label><input type="text" id="channelId"></div>
+        <span class="warn">⚠️サーバーIDの入力が必要な機能があります</span>
+        <div class="row">
+          <div><label>サーバーID:</label><input type="text" id="server_id"></div>
+          <div><label>チャンネルID:</label><input type="text" id="channel_id"></div>
         </div>
-        <div class="flex-row">
-            <div><label>ユーザーID (カンマ区切り):</label><input type="text" id="userIds"></div>
-            <div><label>非メンションブラックリスト:</label><input type="text" id="blacklistIds"></div>
+        <div class="row">
+          <div><label>ユーザーID:</label><input type="text" id="user_id"></div>
+          <div><label>非メンションブラックリストユーザーID:</label><input type="text" id="blacklist_id"></div>
         </div>
+        <label>リアクション用チャンネル,メッセージID:</label>
+        <input type="text" id="reaction_ids" placeholder="channel_id,message_id">
+      </div>
     </div>
 
-    <div class="section" id="msgSettings">
+    <div id="sec-msg" class="section">
+      <div class="card">
         <h2>メッセージ設定</h2>
         <label>発言内容:</label>
-        <textarea id="messageContent" rows="3"></textarea>
+        <textarea id="msg_content"></textarea>
         
-        <div class="flex-row">
-            <div><label>発言回数:</label><input type="number" id="msgCount" value="1"></div>
-            <div><label>遅延(ミリ秒):</label><input type="number" id="msgDelay" value="1000"></div>
-            <div><label>ランダムメンション数:</label><input type="number" id="randMentionCount" value="0"></div>
-            <div><label>ランダム文字数:</label><input type="number" id="randCharCount" value="0"></div>
+        <div class="row">
+          <div>
+            <label>発言回数:</label>
+            <input type="number" id="msg_count" value="1">
+            <span class="warn">⚠️回数が多いと処理が重くなります</span>
+          </div>
+          <div><label>遅延(ミリ秒):</label><input type="number" id="msg_delay" value="1000"></div>
         </div>
+        
+        <div class="row">
+          <div><label>ランダムメンションの数:</label><input type="number" id="msg_mentions" value="0"></div>
+          <div><label>ランダム文字数:</label><input type="number" id="rand_len" value="0"></div>
+        </div>
+        
+        <div class="checkbox-group">
+          <input type="checkbox" id="msg_poll"><label>投票を含める</label>
+        </div>
+        
+        <div class="row">
+          <div><label>投票タイトル:</label><input type="text" id="poll_title"></div>
+          <div><label>開催期間 (1/4/8/24/72/168/336):</label><input type="number" id="poll_duration" value="24"></div>
+        </div>
+        
+        <label>投票の回答 (カンマ区切り):</label>
+        <input type="text" id="poll_answers" placeholder="選択肢1,選択肢2">
+        
+        <label>取得する過去投票メッセージの量:</label>
+        <input type="number" id="poll_past" value="0">
+        <span class="warn">⚠️多い程自動で投票を終了させれる投票の数が増えますが処理が重くなります 0の場合は開票しない</span>
+      </div>
 
-        <div class="checkbox-group"><input type="checkbox" id="includePoll"><label>投票を含める</label></div>
-        <div id="pollSettings" style="display:none; margin-left:20px; border-left:2px solid #3498db; padding-left:10px;">
-            <label>投票タイトル:</label><input type="text" id="pollTitle">
-            <label>投票の回答 (カンマ区切り):</label><input type="text" id="pollAnswers">
-            <label>開催期間 (時間):</label>
-            <select id="pollDuration">
-                <option value="1">1</option><option value="4">4</option><option value="8">8</option>
-                <option value="24" selected>24</option><option value="72">72</option><option value="168">168</option><option value="336">336</option>
+      <div class="card">
+        <h2>オプション設定</h2>
+        <div class="row">
+          <div>
+            <label style="color:var(--accent);">＜通常オプション設定＞</label>
+            <div class="checkbox-group"><input type="checkbox" id="opt_autodelay"><label>自動遅延調節:</label></div>
+          </div>
+          <div>
+            <label style="color:var(--accent);">＜対策用オプション設定：⚠️対策の無い鯖では非推奨＞</label>
+            <div class="checkbox-group"><input type="checkbox" id="opt_randchar"><label>ランダム文字追加 対BOT用:</label></div>
+            <div class="checkbox-group"><input type="checkbox" id="opt_zerowidth"><label>ゼロ幅スペース追加 対BOT用:</label></div>
+            <div class="checkbox-group"><input type="checkbox" id="opt_specialchar"><label>特殊記号追加 対AUTOMOD用:</label></div>
+          </div>
+        </div>
+        
+        <label>送信開始までの時間 (分後):</label>
+        <input type="number" id="start_delay_min" value="0">
+        <button class="action" id="btn_msg_send">送信開始(⚠️連打するとリクエストが2倍になります)</button>
+        <button class="action secondary" id="btn_msg_type">入力中</button>
+      </div>
+    </div>
+
+    <div id="sec-transfer" class="section">
+      <div class="card">
+        <h2>転送設定</h2>
+        <div class="row">
+          <div><label>転送元Guild ID:</label><input type="text" id="t_guild"></div>
+          <div><label>転送元Channel ID:</label><input type="text" id="t_channel"></div>
+          <div><label>転送元Message ID:</label><input type="text" id="t_msg"></div>
+        </div>
+        <div class="row">
+          <div><label>転送遅延(ミリ秒):</label><input type="number" id="t_delay" value="1000"></div>
+          <div><label>送信回数:</label><input type="number" id="t_count" value="1"></div>
+        </div>
+        <button class="action" id="btn_transfer">転送開始</button>
+      </div>
+    </div>
+
+    <div id="sec-react" class="section">
+      <div class="card">
+        <h2>リアクション設定</h2>
+        <label>標準絵文字 (,):</label>
+        <textarea id="r_std">😀,😃,😄,😁,😆,😅,😂,🤣,😊,😇,🙂,🙃,😉,😌,😍,🥰,😘,😗,😙,😚</textarea>
+        
+        <label>カスタム絵文字 emoji_name:emoji_id (,):</label>
+        <span class="warn">⚠️注意；カスタム絵文字はニトロ垢の場合のみ 通常の垢の場合は空にしてください</span>
+        <textarea id="r_cus" placeholder="emoji_name:emoji_id"></textarea>
+        
+        <label>リアクション遅延 (ミリ秒):</label>
+        <input type="number" id="r_delay" value="1000">
+        
+        <button class="action" id="btn_react">リアクション送信開始</button>
+      </div>
+    </div>
+
+    <div id="sec-thread" class="section">
+      <div class="card">
+        <h2>スレッド設定</h2>
+        <label>スレッドタイトル:</label>
+        <input type="text" id="th_title">
+        <label>スレッドのメッセージ:</label>
+        <textarea id="th_msg"></textarea>
+        <div class="row">
+          <div><label>作成回数:</label><input type="number" id="th_count" value="1"></div>
+          <div><label>遅延 (ミリ秒):</label><input type="number" id="th_delay" value="1000"></div>
+          <div><label>スレッドのタイプ:</label>
+            <select id="th_type">
+              <option value="11">通常</option>
+              <option value="10">アナウンス</option>
             </select>
+          </div>
         </div>
-
-        <h3>対策オプション</h3>
-        <div class="checkbox-group"><input type="checkbox" id="optRandStr"><label>ランダム文字追加 対BOT用</label></div>
-        <div class="checkbox-group"><input type="checkbox" id="optZeroWidth"><label>ゼロ幅スペース追加 対BOT用</label></div>
-        <div class="checkbox-group"><input type="checkbox" id="optSpecialChar"><label>特殊記号追加 対AUTOMOD用</label></div>
-
-        <button onclick="startAction('message')">送信開始</button>
+        <button class="action" id="btn_thread">スレッド送信開始</button>
+      </div>
     </div>
 
-    <div class="section">
-        <h2>その他の機能</h2>
-        <label>対象のメッセージID (リアクション/転送用):</label>
-        <input type="text" id="targetMessageId">
-        <label>絵文字 (標準 または カスタム emoji_name:emoji_id):</label>
-        <input type="text" id="emojiList" value="😀,😃,😄,😁,😆">
-        <button onclick="startAction('reaction')" style="background:#e67e22;">リアクション送信開始</button>
-
-        <hr>
-        <label>スレッドタイトル:</label><input type="text" id="threadTitle">
-        <button onclick="startAction('thread')" style="background:#8e44ad;">スレッド送信開始</button>
-
-        <hr>
-        <label>新しいニックネーム:</label><input type="text" id="newNickname">
-        <button onclick="startAction('nickname')" style="background:#16a085;">ニックネーム変更</button>
+    <div id="sec-nick" class="section">
+      <div class="card">
+        <h2>ニックネーム変更設定</h2>
+        <span class="warn">⚠️サーバーIDの入力が必要</span>
+        <label>新しいニックネーム:</label>
+        <input type="text" id="nick_new">
+        <div class="checkbox-group">
+          <input type="checkbox" id="nick_stealth"><label>ステルスモード</label>
+        </div>
+        <button class="action" id="btn_nick">ニックネーム変更</button>
+      </div>
     </div>
 
-    <div class="section">
-        <h2>ログ</h2>
-        <div id="logArea"></div>
+    <div id="sec-event" class="section">
+      <div class="card">
+        <h2>イベント作成</h2>
+        <span class="warn">⚠️エクスプレッション権限に未対応</span>
+        <label>サーバーID： (未入力時はID設定のサーバーIDを使用)</label>
+        <input type="text" id="ev_server">
+        <div class="row">
+          <div><label>イベント名：</label><input type="text" id="ev_name"></div>
+          <div><label>ロケーション：</label><input type="text" id="ev_loc"></div>
+        </div>
+        <label>イベント概要：</label>
+        <textarea id="ev_desc" style="min-height: 50px;"></textarea>
+        <div class="row">
+          <div><label>開始日時(UTC標準時) YYYY-MM-DDTHH:MM:SS:</label><input type="text" id="ev_start"></div>
+          <div><label>終了日時(UTC標準時) YYYY-MM-DDTHH:MM:SS:</label><input type="text" id="ev_end"></div>
+        </div>
+        <div class="row">
+          <div><label>イベント作成回数：</label><input type="number" id="ev_count" value="1"></div>
+          <div><label>遅延時間（ミリ秒）：</label><input type="number" id="ev_delay" value="1000"></div>
+        </div>
+        <button class="action" id="btn_event">イベントを作成</button>
+      </div>
+      <div class="card">
+        <h2>絵文字追加</h2>
+        <span class="warn">⚠️エクスプレッション権限に未対応</span>
+        <label>サーバーID (Guild ID): (未入力時はID設定のサーバーIDを使用)</label>
+        <input type="text" id="em_server">
+        <div class="row">
+          <div><label>絵文字名 (英数字/_):</label><input type="text" id="em_name"></div>
+          <div><label>絵文字URL (PNG/JPG/GIF Base64等):</label><input type="text" id="em_url"></div>
+        </div>
+        <button class="action" id="btn_emoji">絵文字を追加(1個/20秒)</button>
+      </div>
     </div>
+
+  </div>
+  <div id="log-panel"></div>
 </div>
-    
+
 <script>
-// util.js
-function log(msg) {
-    const logArea = document.getElementById('logArea');
-    const time = new Date().toLocaleTimeString();
-    logArea.innerHTML += `[${time}] ${msg}<br>`;
-    logArea.scrollTop = logArea.scrollHeight;
-}
+const D = document;
+const v = id => D.getElementById(id).value;
+const c = id => D.getElementById(id).checked;
+const lg = m => {
+  const p = D.getElementById('log-panel');
+  const d = new Date();
+  const ts = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}.${String(d.getMilliseconds()).padStart(3,'0')}`;
+  p.textContent = `[${ts}] ${m}\n` + p.textContent;
+};
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const getT = () => v('tokens').split('\n').map(t=>t.trim()).filter(Boolean);
 
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-
-function getTokens() {
-    return document.getElementById('tokens').value.split('\n').map(t => t.trim()).filter(t => t.length > 0);
-}
-
-
-
-
-const zeroWidthChars = ['\u200B', '\u200C', '\u200D', '\uFEFF'];
-function addZeroWidthSpaces(text) {
-    if(!document.getElementById('optZeroWidth').checked) return text;
-    return text.split('').map(char => {
-
-        const zw = zeroWidthChars[Math.floor(Math.random() * zeroWidthChars.length)];
-        return char + zw;
-    }).join('');
-}
-
-
-const specialChars = ['!', '"', '#', '$', '%', '&', "'", '(', ')', '*', '+', ',', '-', '.', '/', ':', ';', '<', '=', '>', '?', '@', '[', '\\', ']', '^', '_', '`', '{', '|', '}', '~', '§', '¨', '©', 'ª', '«', '¬', '®', '¯', '°', '±', '²', '³', '´', 'µ', '¶', '·', '¸', '¹', 'º', '»', '¼', '½', '¾', '¿', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅', '✦', '✧'];
-function addSpecialChars(text) {
-    if(!document.getElementById('optSpecialChar').checked) return text;
-    let result = '';
-    for(let i = 0; i < text.length; i++) {
-        result += text[i];
-        if(Math.random() > 0.6) {
-            result += specialChars[Math.floor(Math.random() * specialChars.length)];
-        }
-    }
-    return result;
-}
-
-
-function generateRandomString(length) {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for(let i = 0; i < length; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-}
-
-
-function generateRandomMentions(count, userIdsStr, blacklistStr) {
-    if (count <= 0 || !userIdsStr) return '';
-    let users = userIdsStr.split(',').map(id => id.trim()).filter(id => id);
-    let blacklist = blacklistStr.split(',').map(id => id.trim());
-    users = users.filter(id => !blacklist.includes(id));
-    if (users.length === 0) return '';
-    
-    let mentions = '';
-    for(let i = 0; i < count; i++) {
-        const randUser = users[Math.floor(Math.random() * users.length)];
-        mentions += `<@${randUser}> `;
-    }
-    return mentions;
-}
-
-
-function buildMessage(baseText) {
-    let text = baseText;
-    text = addSpecialChars(text);
-    text = addZeroWidthSpaces(text);
-    
-    const randCount = parseInt(document.getElementById('randCharCount').value) || 0;
-    if (document.getElementById('optRandStr').checked || randCount > 0) {
-        const len = randCount > 0 ? randCount : 10; // デフォルト10文字
-        text += '\n' + generateRandomString(len);
-    }
-    
-    const mentionCount = parseInt(document.getElementById('randMentionCount').value) || 0;
-    if (mentionCount > 0) {
-        text += '\n' + generateRandomMentions(mentionCount, document.getElementById('userIds').value, document.getElementById('blacklistIds').value);
-    }
-    return text;
-}
-
-
-document.getElementById('includePoll').addEventListener('change', (e) => {
-    document.getElementById('pollSettings').style.display = e.target.checked ? 'block' : 'none';
+D.querySelectorAll('.nav-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    D.querySelectorAll('.nav-btn').forEach(x => x.classList.remove('active'));
+    D.querySelectorAll('.section').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    D.getElementById(b.dataset.target).classList.add('active');
+  });
 });
-   
 
+const req = async (ep, m, b, t) => {
+  const w = v('worker_url');
+  if(!w) { lg('エラー: Worker URLが未設定です'); return null; }
+  return fetch(w, {
+    method: 'POST',
+    body: JSON.stringify({ ep, m, h: { 'Authorization': t, 'Content-Type': 'application/json' }, b })
+  });
+};
 
-async function sendRequest(token, method, endpoint, payload = null) {
-    const workerUrl = document.getElementById('workerUrl').value;
-    if(!workerUrl) { log("エラー: Worker URLが未設定です"); return null; }
+const ZW = ['\u200B','\u200C','\u200D','\uFEFF','\u2060'];
+const SY = ['.',',','\'','"','*','-','_','=','+','~','|','/','\\','!','?','@','#','$','%','^','&','(',')','<','>','[',']','{','}',':'];
+const AL = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
-    const url = `https://discord.com/api/v10${endpoint}`;
-    const options = {
-        method: method,
-        headers: {
-            "Authorization": token,
-            "X-Target-URL": url, 
-            "Content-Type": "application/json"
-        }
-    };
-    if (payload && method !== 'GET') {
-        options.body = JSON.stringify(payload);
-    }
+const fmt = (txt) => {
+  let r = txt;
+  if(c('opt_zerowidth')) r = r.split('').join(ZW[Math.floor(Math.random()*ZW.length)]);
+  if(c('opt_specialchar')) r = r.split('').map(x => x + (Math.random()>0.5 ? SY[Math.floor(Math.random()*SY.length)] : '')).join('');
+  let rl = parseInt(v('rand_len')) || 0;
+  if(c('opt_randchar') || rl > 0) {
+    let len = rl > 0 ? rl : 10;
+    let s = ''; for(let i=0;i<len;i++) s += AL[Math.floor(Math.random()*AL.length)];
+    r += '\n' + s;
+  }
+  let rm = parseInt(v('msg_mentions')) || 0;
+  if(rm > 0) {
+    let m = ''; for(let i=0;i<rm;i++) m += `<@${Math.floor(Math.random()*900000000000000000)+100000000000000000}> `;
+    r += '\n' + m;
+  }
+  return r;
+};
 
-    try {
-        const res = await fetch(workerUrl, options);
-        if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-        return await res.json().catch(() => ({}));
-    } catch(err) {
-        log(`API通信エラー: ${err.message}`);
-        return null;
-    }
-}
-
-
-async function processMessage() {
-    const tokens = getTokens();
-    const channelId = document.getElementById('channelId').value;
-    const count = parseInt(document.getElementById('msgCount').value) || 1;
-    const delay = parseInt(document.getElementById('msgDelay').value) || 1000;
-    const baseText = document.getElementById('messageContent').value;
-    const includePoll = document.getElementById('includePoll').checked;
-
-    if (!channelId) { log("エラー: チャンネルIDがありません"); return; }
-
-    log(`メッセージ送信開始 (対象: ${tokens.length}アカウント, 回数: ${count})`);
-
-    for(let i = 0; i < count; i++) {
-        for(let t = 0; t < tokens.length; t++) {
-            let payload = { content: buildMessage(baseText) };
-
-     
-            if (includePoll) {
-                const answers = document.getElementById('pollAnswers').value.split(',').map(a => ({ poll_media: { text: a.trim() } }));
-                payload.poll = {
-                    question: { text: document.getElementById('pollTitle').value },
-                    answers: answers,
-                    duration: parseInt(document.getElementById('pollDuration').value) || 24,
-                    allow_multiselect: false
-                };
-            }
-
-            const res = await sendRequest(tokens[t], 'POST', `/channels/${channelId}/messages`, payload);
-            if(res && res.id) log(`[Success] Token ${t+1}: メッセージ送信済 (ID: ${res.id})`);
-            await sleep(delay);
-        }
-    }
-    log("メッセージ送信完了");
-}
-
-
-async function processReaction() {
-    const tokens = getTokens();
-    const channelId = document.getElementById('channelId').value;
-    const messageId = document.getElementById('targetMessageId').value;
-    const delay = parseInt(document.getElementById('msgDelay').value) || 1000;
-    
-    if (!channelId || !messageId) { log("エラー: チャンネルIDまたはメッセージIDがありません"); return; }
-
-    const emojis = document.getElementById('emojiList').value.split(',').map(e => e.trim());
-    
-    log(`リアクション開始 (対象: ${tokens.length}アカウント)`);
-
-    for(let t = 0; t < tokens.length; t++) {
-        for(let e of emojis) {
-       
-            let encodedEmoji = e.includes(':') ? e : encodeURIComponent(e);
-            const res = await sendRequest(tokens[t], 'PUT', `/channels/${channelId}/messages/${messageId}/reactions/${encodedEmoji}/@me`);
-            log(`[Reaction] Token ${t+1}: ${e} 追加試行`);
-            await sleep(delay);
-        }
-    }
-    log("リアクション完了");
-}
-
-
-
-async function processThread() {
-    const tokens = getTokens();
-    const channelId = document.getElementById('channelId').value;
-    const title = document.getElementById('threadTitle').value || "Thread";
-    const baseText = document.getElementById('messageContent').value || "Thread Content";
-    const delay = parseInt(document.getElementById('msgDelay').value) || 1000;
-    
-    if (!channelId) { log("エラー: チャンネルIDがありません"); return; }
-
-    log(`スレッド作成開始`);
-    for(let t = 0; t < tokens.length; t++) {
-        const payload = {
-            name: title,
-            type: 11, // Public Thread
-            auto_archive_duration: 1440
+D.getElementById('btn_msg_send').onclick = async () => {
+  let sd = parseInt(v('start_delay_min')) || 0;
+  if(sd > 0) { lg(`${sd} 分間待機しています...`); await wait(sd * 60000); }
+  let cnt = parseInt(v('msg_count')) || 1;
+  let del = parseInt(v('msg_delay')) || 1000;
+  let ch = v('channel_id');
+  let toks = getT();
+  for(let i=0; i<cnt; i++) {
+    for(let t of toks) {
+      let b = { content: fmt(v('msg_content')) };
+      if(c('msg_poll')) {
+        b.poll = {
+          question: { text: v('poll_title') },
+          answers: v('poll_answers').split(',').map(x=>({poll_media:{text:x}})),
+          duration: parseInt(v('poll_duration')) || 24
         };
-    
-        const res = await sendRequest(tokens[t], 'POST', `/channels/${channelId}/threads`, payload);
-        if(res && res.id) {
-            log(`[Success] Token ${t+1}: スレッド作成済 (ID: ${res.id})`);
-      
-            await sendRequest(tokens[t], 'POST', `/channels/${res.id}/messages`, { content: buildMessage(baseText) });
-        }
-        await sleep(delay);
+      }
+      req(`/channels/${ch}/messages`, 'POST', b, t).then(res => lg(`送信 [${res.status}]`));
+      await wait(c('opt_autodelay') ? del + Math.random()*800 : del);
     }
-    log("スレッド作成完了");
-}
+  }
+};
 
+D.getElementById('btn_msg_type').onclick = () => {
+  let ch = v('channel_id');
+  getT().forEach(t => req(`/channels/${ch}/typing`, 'POST', null, t).then(res => lg(`入力中 [${res.status}]`)));
+};
 
-async function processNickname() {
-    const tokens = getTokens();
-    const guildId = document.getElementById('guildId').value;
-    let newNick = document.getElementById('newNickname').value;
-    
-    if (!guildId) { log("エラー: サーバー(Guild) IDがありません"); return; }
-
-
-    newNick = buildMessage(newNick); 
-
-    log(`ニックネーム変更開始`);
-    for(let t = 0; t < tokens.length; t++) {
-        const payload = { nick: newNick };
-        const res = await sendRequest(tokens[t], 'PATCH', `/guilds/${guildId}/members/@me`, payload);
-        log(`[Nickname] Token ${t+1}: 変更完了`);
-        await sleep(500); 
+D.getElementById('btn_transfer').onclick = async () => {
+  let cnt = parseInt(v('t_count')) || 1;
+  let del = parseInt(v('t_delay')) || 1000;
+  let toks = getT();
+  for(let i=0; i<cnt; i++) {
+    for(let t of toks) {
+      let r = await req(`/channels/${v('t_channel')}/messages/${v('t_msg')}`, 'GET', null, t);
+      if(r && r.ok) {
+        let j = await r.json();
+        req(`/channels/${v('channel_id')}/messages`, 'POST', { content: j.content }, t).then(res => lg(`転送 [${res.status}]`));
+      } else { lg('転送エラー: メッセージの取得に失敗しました'); }
+      await wait(del);
     }
-    log("ニックネーム変更完了");
-}
+  }
+};
 
-
-async function startAction(type) {
-    if (getTokens().length === 0) {
-        log("エラー: トークンが入力されていません");
-        return;
+D.getElementById('btn_react').onclick = async () => {
+  let std = v('r_std').split(',').filter(Boolean);
+  let cus = v('r_cus').split(',').filter(Boolean);
+  let all = [...std, ...cus];
+  let [ch, msg] = v('reaction_ids').split(',');
+  let del = parseInt(v('r_delay')) || 1000;
+  let toks = getT();
+  for(let e of all) {
+    for(let t of toks) {
+      req(`/channels/${ch}/messages/${msg}/reactions/${encodeURIComponent(e.trim())}/@me`, 'PUT', null, t).then(res => lg(`リアクション [${res.status}]`));
+      await wait(del);
     }
+  }
+};
 
-    switch(type) {
-        case 'message':
-            await processMessage();
-            break;
-        case 'reaction':
-            await processReaction();
-            break;
-        case 'thread':
-            await processThread();
-            break;
-        case 'nickname':
-            await processNickname();
-            break;
-        default:
-            log("不明なアクションです");
+D.getElementById('btn_thread').onclick = async () => {
+  let cnt = parseInt(v('th_count')) || 1;
+  let del = parseInt(v('th_delay')) || 1000;
+  let toks = getT();
+  for(let i=0; i<cnt; i++) {
+    for(let t of toks) {
+      let b = { name: v('th_title'), type: parseInt(v('th_type')), message: { content: v('th_msg') } };
+      req(`/channels/${v('channel_id')}/threads`, 'POST', b, t).then(res => lg(`スレッド [${res.status}]`));
+      await wait(del);
     }
-}
-<script>
+  }
+};
+
+D.getElementById('btn_nick').onclick = () => {
+  let nn = v('nick_new');
+  if(c('nick_stealth')) nn += ZW[0];
+  let sid = v('server_id');
+  getT().forEach(t => req(`/guilds/${sid}/members/@me`, 'PATCH', { nick: nn }, t).then(res => lg(`ニックネーム [${res.status}]`)));
+};
+
+D.getElementById('btn_event').onclick = async () => {
+  let cnt = parseInt(v('ev_count')) || 1;
+  let del = parseInt(v('ev_delay')) || 1000;
+  let sid = v('ev_server') || v('server_id');
+  let toks = getT();
+  for(let i=0; i<cnt; i++) {
+    for(let t of toks) {
+      let b = { name: v('ev_name'), description: v('ev_desc'), privacy_level: 2, entity_type: 3, entity_metadata: { location: v('ev_loc') }, scheduled_start_time: v('ev_start'), scheduled_end_time: v('ev_end') };
+      req(`/guilds/${sid}/scheduled-events`, 'POST', b, t).then(res => lg(`イベント [${res.status}]`));
+      await wait(del);
+    }
+  }
+};
+
+D.getElementById('btn_emoji').onclick = () => {
+  let sid = v('em_server') || v('server_id');
+  getT().forEach(t => req(`/guilds/${sid}/emojis`, 'POST', { name: v('em_name'), image: v('em_url') }, t).then(res => lg(`絵文字 [${res.status}]`)));
+};
+
+lg('ステータス: 準備完了');
+</script>
 </body>
 </html>
