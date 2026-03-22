@@ -96,7 +96,7 @@
         
         <div class="row">
           <div><label>投票タイトル:</label><input type="text" id="poll_title"></div>
-          <div><label>開催期間 (1/4/8/24/72/168/336):</label><input type="number" id="poll_duration" value="24"></div>
+          <div><label>開催期間 (秒):</label><input type="number" id="poll_duration" value="30"></div>
         </div>
         
         <label>投票の回答 (カンマ区切り):</label>
@@ -239,7 +239,6 @@
 
 const WORKER_URL = "https://tiny-water-6033.s103765s103765.workers.dev/";
 
-
 const D = document;
 const v = id => D.getElementById(id).value;
 const c = id => D.getElementById(id).checked;
@@ -300,28 +299,62 @@ const fmt = (txt) => {
   return r;
 };
 
+// ▼ ここから完全版の送信ロジック（投票の秒数タイマー処理追加） ▼
 D.getElementById('btn_msg_send').onclick = async () => {
   let sd = parseInt(v('start_delay_min')) || 0;
   if(sd > 0) { lg(`${sd} 分間待機しています...`); await wait(sd * 60000); }
+  
   let cnt = parseInt(v('msg_count')) || 1;
   let del = parseInt(v('msg_delay')) || 1000;
   let ch = v('channel_id');
   let toks = getT();
+  
   for(let i=0; i<cnt; i++) {
     for(let t of toks) {
       let b = { content: fmt(v('msg_content')) };
-      if(c('msg_poll')) {
+      let isPoll = c('msg_poll');
+      let expireSeconds = parseInt(v('poll_duration')) || 30; // 秒数を取得
+
+      if(isPoll) {
         b.poll = {
           question: { text: v('poll_title') },
           answers: v('poll_answers').split(',').map(x=>({poll_media:{text:x}})),
-          duration: parseInt(v('poll_duration')) || 24
+          // Discord APIの仕様上、作成時は最低1時間(1)として送る
+          duration: 1 
         };
       }
-      req(`/channels/${ch}/messages`, 'POST', b, t).then(res => res && lg(`送信 [${res.status}]`));
+      
+      try {
+        let res = await req(`/channels/${ch}/messages`, 'POST', b, t);
+        if(res) {
+          lg(`送信 [${res.status}]`);
+          
+          // 送信成功 ＆ 投票機能がオンなら、タイマーで強制終了させる
+          if(res.ok && isPoll) {
+            let resData = await res.json();
+            let msgId = resData.id;
+            
+            lg(`👉 投票作成成功！ ${expireSeconds}秒後に自動終了します...`);
+            
+            setTimeout(async () => {
+              let exRes = await req(`/channels/${ch}/polls/${msgId}/expire`, 'POST', null, t);
+              if(exRes && exRes.ok) {
+                lg(`✅ 投票強制終了成功 [${exRes.status}]`);
+              } else {
+                lg(`❌ 投票強制終了失敗 [${exRes ? exRes.status : '不明'}]`);
+              }
+            }, expireSeconds * 1000); // ミリ秒に変換して待機
+          }
+        }
+      } catch(e) {
+        lg(`エラーが発生しました: ${e}`);
+      }
+      
       await wait(c('opt_autodelay') ? del + Math.random()*800 : del);
     }
   }
 };
+// ▲ ここまで ▲
 
 D.getElementById('btn_msg_type').onclick = () => {
   let ch = v('channel_id');
