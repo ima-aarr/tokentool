@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>token Tool </title>
+    <style>
+        :root { --bg-dark: #2c2f33; --bg-darker: #23272a; --bg-input: #36393f; --primary: #7289da; --text: #ffffff; --accent: #00ff00; }
+        body { font-family: 'Whitney', 'Helvetica Neue', Helvetica, Arial, sans-serif; background: var(--bg-dark); color: var(--text); margin: 0; padding: 20px; line-height: 1.5; }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { text-align: center; color: var(--primary); }
+        .section { background: var(--bg-darker); padding: 20px; border-radius: 8px; margin-bottom: 20px; border-top: 4px solid var(--primary); }
+        .section-title { font-size: 1.2rem; font-weight: bold; margin-bottom: 15px; cursor: pointer; display: flex; justify-content: space-between; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        label { display: block; font-size: 0.85rem; margin-bottom: 5px; color: #b9bbbe; }
+        input, textarea, select { width: 100%; padding: 10px; background: var(--bg-input); border: 1px solid #202225; color: white; border-radius: 4px; box-sizing: border-box; }
+        textarea { resize: vertical; min-height: 60px; }
+        .btn-group { margin-top: 15px; display: flex; gap: 10px; }
+        button { flex: 1; padding: 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: #5b6eae; }
+        .btn-danger { background: #f04747; color: white; }
+        #log { background: #000; color: var(--accent); padding: 15px; height: 250px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 0.85rem; border-radius: 4px; border: 1px solid #444; }
+        .hidden { display: none; }
+        .checkbox-group { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+        .checkbox-group input { width: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>token Tool</h1>
+
+        <div class="section">
+            <div class="section-title">主要設定 (Auth)</div>
+            <label>Discord User Tokens (1行に1つ)</label>
+            <textarea id="tokens" placeholder="MTI3..."></textarea>
+        </div>
+
+        <div class="section">
+            <div class="section-title">ID設定</div>
+            <div class="grid">
+                <div><label>サーバーID (Guild ID)</label><input type="text" id="guildId"></div>
+                <div><label>チャンネルID</label><input type="text" id="channelId"></div>
+                <div><label>ユーザーID (ターゲット)</label><input type="text" id="targetUserId"></div>
+                <div><label>メッセージID (リアクション用等)</label><input type="text" id="messageId"></div>
+            </div>
+        </div>
+
+        <div class="section" id="msgSection">
+            <div class="section-title">メッセージ送信</div>
+            <label>発言内容</label>
+            <textarea id="content"></textarea>
+            <div class="grid">
+                <div><label>送信回数</label><input type="number" id="count" value="1"></div>
+                <div><label>遅延 (ミリ秒)</label><input type="number" id="delay" value="1000"></div>
+            </div>
+            <div class="grid" style="margin-top:10px;">
+                <div class="checkbox-group"><input type="checkbox" id="randomChar">ランダム文字</div>
+                <div class="checkbox-group"><input type="checkbox" id="zeroWidth">ゼロ幅スペース</div>
+            </div>
+            <button class="btn-primary" onclick="execute('send_message')">送信開始</button>
+        </div>
+
+        <div class="section">
+            <div class="section-title">リアクション設定</div>
+            <label>絵文字 (カンマ区切り : 😀,🔥)</label>
+            <input type="text" id="emojis" value="😀,😃,😄,😁,😆">
+            <label>カスタム絵文字 (name:id 形式)</label>
+            <textarea id="customEmojis" placeholder="emoji_name:123456789"></textarea>
+            <button class="btn-primary" onclick="execute('add_reaction')">リアクション開始</button>
+        </div>
+
+        <div class="section">
+            <div class="section-title">スレッド/ニックネーム/イベント</div>
+            <div class="grid">
+                <div>
+                    <label>スレッド名</label>
+                    <input type="text" id="threadName">
+                    <button class="btn-primary" onclick="execute('create_thread')">スレッド作成</button>
+                </div>
+                <div>
+                    <label>新ニックネーム</label>
+                    <input type="text" id="nickname">
+                    <button class="btn-primary" onclick="execute('change_nickname')">名前変更</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="log">--- システム待機中 ---</div>
+    </div>
+    <script>
+        const logEl = document.getElementById('log');
+        const workerUrl = 'https://tiny-water-6033.s103765s103765.workers.dev/'; 
+
+        function addLog(msg, type = 'info') {
+            const div = document.createElement('div');
+            const time = new Date().toLocaleTimeString();
+            div.style.color = type === 'error' ? '#f04747' : (type === 'success' ? '#43b581' : '#00ff00');
+            div.textContent = `[${time}] ${msg}`;
+            logEl.appendChild(div);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        async function execute(action) {
+            const tokens = document.getElementById('tokens').value.split('\n').filter(t => t.trim());
+            if (tokens.length === 0) return addLog("エラー: トークンを入力してください", "error");
+
+            const data = {
+                action: action,
+                tokens: tokens,
+                guildId: document.getElementById('guildId').value,
+                channelId: document.getElementById('channelId').value,
+                targetUserId: document.getElementById('targetUserId').value,
+                messageId: document.getElementById('messageId').value,
+                content: document.getElementById('content').value,
+                count: parseInt(document.getElementById('count').value) || 1,
+                delay: parseInt(document.getElementById('delay').value) || 1000,
+                emojis: document.getElementById('emojis').value.split(','),
+                customEmojis: document.getElementById('customEmojis').value.split('\n').filter(e => e.trim()),
+                threadName: document.getElementById('threadName').value,
+                nickname: document.getElementById('nickname').value,
+                options: {
+                    randomChar: document.getElementById('randomChar').checked,
+                    zeroWidth: document.getElementById('zeroWidth').checked
+                }
+            };
+
+            addLog(`${action} を開始します... (${tokens.length} tokens)`);
+
+            try {
+                const response = await fetch(workerUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    addLog(`成功: ${result.message}`, "success");
+                } else {
+                    addLog(`エラー: ${result.error || '不明なエラー'}`, "error");
+                }
+            } catch (e) {
+                addLog(`通信エラー: ${e.message}`, "error");
+            }
+        }
+    </script>
+</body>
+</html>
