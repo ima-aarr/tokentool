@@ -299,7 +299,7 @@ const fmt = (txt) => {
   return r;
 };
 
-// ▼ ここから完全版の送信ロジック（投票の秒数タイマー処理追加） ▼
+
 D.getElementById('btn_msg_send').onclick = async () => {
   let sd = parseInt(v('start_delay_min')) || 0;
   if(sd > 0) { lg(`${sd} 分間待機しています...`); await wait(sd * 60000); }
@@ -313,13 +313,13 @@ D.getElementById('btn_msg_send').onclick = async () => {
     for(let t of toks) {
       let b = { content: fmt(v('msg_content')) };
       let isPoll = c('msg_poll');
-      let expireSeconds = parseInt(v('poll_duration')) || 30; // 秒数を取得
+      let expireSeconds = parseInt(v('poll_duration')) || 30; 
 
       if(isPoll) {
         b.poll = {
           question: { text: v('poll_title') },
           answers: v('poll_answers').split(',').map(x=>({poll_media:{text:x}})),
-          // Discord APIの仕様上、作成時は最低1時間(1)として送る
+       
           duration: 1 
         };
       }
@@ -329,12 +329,12 @@ D.getElementById('btn_msg_send').onclick = async () => {
         if(res) {
           lg(`送信 [${res.status}]`);
           
-          // 送信成功 ＆ 投票機能がオンなら、タイマーで強制終了させる
+          
           if(res.ok && isPoll) {
             let resData = await res.json();
             let msgId = resData.id;
             
-            lg(`👉 投票作成成功！ ${expireSeconds}秒後に自動終了します...`);
+            lg(`投票作成成功！ ${expireSeconds}秒後に自動終了します...`);
             
             setTimeout(async () => {
               let exRes = await req(`/channels/${ch}/polls/${msgId}/expire`, 'POST', null, t);
@@ -343,7 +343,7 @@ D.getElementById('btn_msg_send').onclick = async () => {
               } else {
                 lg(`❌ 投票強制終了失敗 [${exRes ? exRes.status : '不明'}]`);
               }
-            }, expireSeconds * 1000); // ミリ秒に変換して待機
+            }, expireSeconds * 1000); 
           }
         }
       } catch(e) {
@@ -354,7 +354,7 @@ D.getElementById('btn_msg_send').onclick = async () => {
     }
   }
 };
-// ▲ ここまで ▲
+
 
 D.getElementById('btn_msg_type').onclick = () => {
   let ch = v('channel_id');
